@@ -5,6 +5,7 @@
 import statistics
 import os
 from typing import Any, List, Dict
+from langsmith import traceable
 def _v(item: Any, name: str):
     if item is None:
         return None
@@ -13,6 +14,7 @@ def _v(item: Any, name: str):
     return getattr(item, name, None)
 
 
+@traceable(run_type="chain", name="analyze_fisher_growth_quality")
 def analyze_fisher_growth_quality(financial_line_items: List[Any]) -> Dict[str, Any]:
     import logging
     logging.info(f"Received {len(financial_line_items)} items for analysis: {[list(item.keys()) if hasattr(item, 'keys') else type(item).__name__ for item in financial_line_items]}")
@@ -89,6 +91,7 @@ def analyze_fisher_growth_quality(financial_line_items: List[Any]) -> Dict[str, 
     return {"score": final_score, "details": "; ".join(details)}
 
 
+@traceable(run_type="chain", name="analyze_margins_stability")
 def analyze_margins_stability(financial_line_items: List[Any]) -> Dict[str, Any]:
     import logging
     logging.info(f"Received {len(financial_line_items)} items for analysis: {[list(item.keys()) if hasattr(item, 'keys') else type(item).__name__ for item in financial_line_items]}")
@@ -144,6 +147,7 @@ def analyze_margins_stability(financial_line_items: List[Any]) -> Dict[str, Any]
     return {"score": final_score, "details": "; ".join(details)}
 
 
+@traceable(run_type="chain", name="analyze_management_efficiency_leverage")
 def analyze_management_efficiency_leverage(financial_line_items: List[Any]) -> Dict[str, Any]:
     import logging
     logging.info(f"Received {len(financial_line_items)} items for analysis: {[list(item.keys()) if hasattr(item, 'keys') else type(item).__name__ for item in financial_line_items]}")
@@ -208,6 +212,7 @@ def analyze_management_efficiency_leverage(financial_line_items: List[Any]) -> D
     return {"score": final_score, "details": "; ".join(details)}
 
 
+@traceable(run_type="chain", name="analyze_fisher_valuation")
 def analyze_fisher_valuation(financial_line_items: List[Any], market_cap: float | None) -> Dict[str, Any]:
     import logging
     logging.info(f"Received {len(financial_line_items)} items for analysis: {[list(item.keys()) if hasattr(item, 'keys') else type(item).__name__ for item in financial_line_items]}")
@@ -252,6 +257,7 @@ def analyze_fisher_valuation(financial_line_items: List[Any], market_cap: float 
     return {"score": final_score, "details": "; ".join(details)}
 
 
+@traceable(run_type="chain", name="analyze_insider_activity")
 def analyze_insider_activity(insider_trades: List[Any]) -> Dict[str, Any]:
     score = 5
     details: List[str] = []
@@ -287,6 +293,7 @@ def analyze_insider_activity(insider_trades: List[Any]) -> Dict[str, Any]:
     return {"score": score, "details": "; ".join(details)}
 
 
+@traceable(run_type="chain", name="analyze_sentiment")
 def analyze_sentiment(news_items: List[Any]) -> Dict[str, Any]:
     if not news_items:
         return {"score": 5, "details": "No news data; defaulting to neutral sentiment"}

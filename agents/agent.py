@@ -14,11 +14,14 @@ from agents.analysis import (
     analyze_insider_activity,
     analyze_sentiment,
 )
+from agents.update_preloaded_cache import update_preloaded_cache
+from langsmith import traceable
 
 mcp_manager = MCPClientManager()
 tools = asyncio.run(mcp_manager.load_tools())
 tools = {tool.name: tool for tool in tools}
 
+@traceable(run_type="chain", name="phil_fisher_agent_core")
 def phil_fisher_agent_core(
     state: State,
     agent_id: str = "phil_fisher_agent",
@@ -37,6 +40,9 @@ def phil_fisher_agent_core(
     analysis_data: Dict[str, Any] = {}
     print(f"Running Phil Fisher analysis for tickers: {tickers}")
     for ticker in tickers:
+        # Initialize raw results dictionary to collect fetched data
+        raw_results = {}
+        
         pli = preloaded.get(ticker, {}).get("financial_line_items")
         if pli is None:
             pli = asyncio.run(tools["search_line_items"].ainvoke({
@@ -51,6 +57,7 @@ def phil_fisher_agent_core(
                 "period": "annual",
                 "limit": 5
             }))
+            raw_results["financial_line_items"] = pli
         
 
         mcap = preloaded.get(ticker, {}).get("market_cap")
@@ -59,6 +66,7 @@ def phil_fisher_agent_core(
                 "ticker": ticker,
                 "end_date": end_date
             }))
+            raw_results["market_cap"] = mcap
         # Fix: convert mcap to float if it's a string
         if isinstance(mcap, str):
             try:
@@ -80,6 +88,7 @@ def phil_fisher_agent_core(
                 "end_date": end_date,
                 "limit": 10
             }))
+            raw_results["insider_trades"] = insiders
 
         news = preloaded.get(ticker, {}).get("company_news")
         if news is None:
@@ -88,6 +97,7 @@ def phil_fisher_agent_core(
                 "end_date": end_date,
                 "limit": 50
             }))
+            raw_results["company_news"] = news
         
         if isinstance(pli, str):
             try:
@@ -134,15 +144,24 @@ def phil_fisher_agent_core(
             "sentiment_analysis": sentiment_analysis,
         }
         print(f"Analysis for {ticker}: Signal={signal_lbl}, Score={total_score:.2f}/10")
+        
+        # Update preloaded cache with fetched data and analysis results
+        if raw_results:  # Only update if we fetched new data
+            preloaded = update_preloaded_cache(ticker, raw_results, analysis_data[ticker], preloaded)
+            print(f"Updated preloaded cache for {ticker}")
 
     # Update state fields for downstream nodes
     if state.analyst_signals is None:
         state.analyst_signals = {}
     state.analyst_signals[agent_id] = analysis_data
     state.analysis_data = analysis_data
+    
+    # Update the state's preloaded data with the updated cache
+    state.data["preloaded"] = preloaded
 
     return state
 
+@traceable(run_type="chain", name="generate_fisher_output")
 def generate_fisher_output(
     *,
     ticker: str,
@@ -199,7 +218,15 @@ def generate_fisher_output(
 
     print(f"Generating response for {ticker} with user message: {user_message}")    
     # Get LLM response (as text)
-    response = llm.invoke(prompt)
+    response = llm.invoke(
+        prompt,
+        config={
+            "metadata": {
+                "node": "generate_fisher_output",
+                "ticker": ticker,
+            }
+        },
+    )
     response_text = getattr(response, "content", None) or str(response)
 
     # Update chat history

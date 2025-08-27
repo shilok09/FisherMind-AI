@@ -1,4 +1,5 @@
 from langchain_mcp_adapters.client import MultiServerMCPClient
+from langsmith import traceable
 
 class MCPClientManager:
     def __init__(self):
@@ -17,6 +18,7 @@ class MCPClientManager:
             }
         )
 
+    @traceable(run_type="tool", name="mcp_load_tools")
     async def load_tools(self):
         print("Loading tools...")
         tools = await self.client.get_tools()
